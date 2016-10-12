@@ -210,6 +210,15 @@ extension JSONRepresentable {
       return nil
     }
   }
+
+  /// Initialize `JSONRepresentable` directly from data
+  public init?(data: Data) {
+    if let json = try? Yajl.jsonObject(with: data) {
+      self = json
+    } else {
+      return nil
+    }
+  }
 }
 
 // MARK: - JSONSerializable

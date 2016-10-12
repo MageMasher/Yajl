@@ -7,7 +7,7 @@ let package = Package(
         Target(name: "Yajl", dependencies: ["YajlConfig"])
     ],
     dependencies: [
-        .Package(url: "../CYajl", "0.1.2")
+        .Package(url: "https://github.com/baberthal/CYajl.git", "0.1.2")
     ],
     exclude: ["Tools", "Makefile"]
 )

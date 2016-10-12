@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'colorize'
+require 'pathname'
+
+undoc_json = JSON.parse(ARGF.read)
+
+source_dir = Pathname.new(undoc_json['source_directory'])
+warnings = undoc_json['warnings']
+
+warnings.each do |warning|
+  next unless warning['warning'] == 'undocumented'
+  puts 'Warning:'.colorize(:red)
+  file = Pathname.new(warning['file'])
+  file = file.relative_path_from(source_dir)
+  line = warning['line']
+  puts "#{file.to_s.blue}:(#{line.to_s.green}) -- " \
+    "#{warning['symbol'].to_s.yellow} is undocumented!"
+  puts
+end

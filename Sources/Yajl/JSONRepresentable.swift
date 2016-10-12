@@ -158,7 +158,8 @@ import Foundation
 private let nsBooleanType = type(of: NSNumber(value: false))
 
 extension JSONRepresentable {
-  static func convertToJSON(_ object: Any) -> JSONRepresentable {
+  /// Tries to convert `Any` to `JSONRepresentable`, returning `.null` if conversion failed.
+  static func convertToJSON(_ object: Any) -> JSONRepresentable! {
     switch object {
     case is NSNull:
       return .null
@@ -206,7 +207,7 @@ extension JSONRepresentable {
       return .dict(result)
 
     default:
-      fatalError("Unexpected object: \(object) \(type(of: object))")
+      return nil
     }
   }
 }
@@ -215,5 +216,8 @@ extension JSONRepresentable {
 
 /// Defines an interface for types that can be serialized in JSON format.
 public protocol JSONSerializable {
+  /// Converts a custom object to `JSONRepresentable`
+  /// 
+  /// - returns: `JSONRepresentable` of the custom object.
   func toJSON() -> JSONRepresentable
 }

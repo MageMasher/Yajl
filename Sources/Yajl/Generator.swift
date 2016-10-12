@@ -60,6 +60,7 @@ public class YajlGenerator {
     self.handle = yajl_gen_alloc(nil)
   }
 
+  /// Clean up the handle on deinitialization
   deinit {
     if self.handle != nil {
       yajl_gen_free(self.handle)

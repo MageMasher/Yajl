@@ -32,6 +32,6 @@ extension YajlParser {
     }
 
     /// Default initializer
-    init() { }
+    init() {}
   }
 }

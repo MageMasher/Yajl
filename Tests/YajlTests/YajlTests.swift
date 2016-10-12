@@ -24,6 +24,18 @@ class YajlTests: YajlTestCase {
     }
   }
 
+  func testGeneration() {
+    let json: JSONRepresentable = ["hello": "world"]
+    let generator = YajlGenerator(options: [])
+    generator.write(object: json)
+
+    let data = generator.buffer
+    let string = String(data: data, encoding: .utf8)
+
+    debugPrint(string!)
+    XCTAssert(string! == "{\"hello\":\"world\"}")
+  }
+
   func testPerformance() {
     guard let data = self.loadData("example") else {
       XCTFail("Couldn't get data.")

@@ -20,6 +20,21 @@ class YajlTests: YajlTestCase {
     }
   }
 
+  func testJSONObject() {
+    guard let data = self.loadData("example") else { XCTFail(); return }
+    let object = try! Yajl.jsonObject(with: data as Data)
+    switch object {
+    case .array(_):
+      XCTFail("Got an array when we expected a Dictionary")
+
+    case .dict(let value):
+      XCTAssertNotNil(value["glossary"])
+
+    default:
+      XCTFail("Got unexpected JSON Type")
+    }
+  }
+
   func testGeneration() {
     let json: JSONRepresentable = ["hello": "world"]
     let generator = YajlGenerator(options: [])

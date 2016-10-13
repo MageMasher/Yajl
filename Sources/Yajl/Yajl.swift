@@ -43,7 +43,7 @@ public final class Yajl {
   public static func jsonObject(with data: Data, options: YajlParser.Options = []) throws -> JSONRepresentable {
     let document = YajlDocument(parserOptions: options)
     try document.parse(data: data)
-    return document.root
+    return document.root!
   }
 
   /// Returns JSON data from a Foundation object.

@@ -17,11 +17,7 @@ public class YajlDocument {
 
   /// The root object of the document
   public var root: JSONRepresentable? {
-    switch self._root {
-    case let ar as ArrayRef: return .array(ar.val)
-    case let dr as DictRef: return .dict(dr.val)
-    default: return nil
-    }
+    return _root?.toJSON()
   }
 
   /// The delegate for this document
@@ -34,7 +30,7 @@ public class YajlDocument {
 
   /// The root object of our document.
   /// - note: This must be `.array` or `.dict`
-  fileprivate var _root: JSONRootType? = nil
+  fileprivate var _root: JSONSerializable? = nil
 
   /// The current type of the root object
   var currentType: CurrentType = .none
@@ -234,20 +230,7 @@ extension YajlDocument {
 
 // MARK: - Reference wrapper
 
-class Ref<T> {
-  var val: T
-  init(_ v: T) { self.val = v }
-  init(other: Ref<T>) { self.val = other.val }
-}
-
-protocol RefType {
-  associatedtype ValueType
-  var val: ValueType { get set }
-}
-
-protocol JSONRootType {}
-
-final class DictRef: Ref<[String: JSONRepresentable]>, RefType {
+final class DictRef: Ref<[String: JSONRepresentable]> {
   override init(_ v: [String: JSONRepresentable]) { super.init(v) }
   init() { super.init([:]) }
 }
@@ -258,9 +241,7 @@ extension DictRef: JSONSerializable {
   }
 }
 
-extension DictRef: JSONRootType {}
-
-final class ArrayRef: Ref<[JSONRepresentable]>, RefType {
+final class ArrayRef: Ref<[JSONRepresentable]> {
   override init(_ v: [JSONRepresentable]) { super.init(v) }
   init() { super.init([]) }
   convenience init(capacity: Int) {
@@ -268,8 +249,6 @@ final class ArrayRef: Ref<[JSONRepresentable]>, RefType {
     self.val.reserveCapacity(capacity)
   }
 }
-
-extension ArrayRef: JSONRootType {}
 
 extension ArrayRef: JSONSerializable {
   func toJSON() -> JSONRepresentable {

@@ -39,7 +39,7 @@ public class YajlParser {
         releaseHandle()
 
         withUnsafeMutablePointer(to: &delegate, { pointer in
-          self.handle = configureHandle(for: UnsafeMutableRawPointer(pointer))
+          self.handle = createHandle(for: UnsafeMutableRawPointer(pointer))
         })
       }
     }
@@ -52,8 +52,8 @@ public class YajlParser {
   public let options: Options
   
   /// The number of bytes the parser has consumed
-  public var bytesParsed: UInt {
-    return UInt(yajl_get_bytes_consumed(handle))
+  public var bytesParsed: Int {
+    return yajl_get_bytes_consumed(handle)
   }
   
   // MARK: - Private
@@ -103,7 +103,20 @@ public class YajlParser {
   /// - returns: The state of the parser
   public func parse(_ data: UnsafePointer<UInt8>, length: Int) -> ParserStatus {
     let parseStatus = yajl_parse(handle, data, length)
-    
+
+    func getErrorMessage() -> String {
+      let errorMessage: String
+
+      if let errorCstring = yajl_get_error(handle, 1, data, length) {
+        errorMessage = String(cString: errorCstring)
+        yajl_free_error(handle, errorCstring)
+      } else {
+        errorMessage = "Unknown error"
+      }
+
+      return errorMessage
+    }
+      
     if parseStatus == yajl_status_ok {
       status.state = .complete
       return status
@@ -115,18 +128,7 @@ public class YajlParser {
     }
     
     if parseStatus == yajl_status_error {
-      status.state = .error
-      
-      let errorMessage: String
-      if let errorCstring = yajl_get_error(handle, 1, data, length) {
-        errorMessage = String(cString: errorCstring)
-        yajl_free_error(handle, errorCstring)
-      } else {
-        errorMessage = "Unknown error"
-      }
-      
-      status.error = .yajlError(parseStatus.rawValue, errorMessage)
-      
+      status.error = .yajlError(parseStatus.rawValue, getErrorMessage())
       return status
     }
     
@@ -140,21 +142,13 @@ public class YajlParser {
   // MARK: - Private Functions
   
   /// Configure the handle
-  private func configureHandle(for context: UnsafeMutableRawPointer?) -> yajl_handle? {
-    var handle: yajl_handle? = nil
-    
-    handle = yajl_alloc(&ParserCallbacks, nil, context)
-    
-    guard handle != nil else {
+  private func createHandle(for context: UnsafeMutableRawPointer?) -> yajl_handle? {
+    guard let handle = yajl_alloc(&ParserCallbacks, nil, context) else {
       status.error = .alloc
       return nil
     }
-    
-    let allowComments: Int32 = self.options.contains(.allowComments) ? 1 : 0
-    let skipValidation: Int32  = self.options.contains(.validateUTF8) ? 0 : 1 // this is reversed
-    
-    configureYajlHandle(handle, option: yajl_allow_comments, intValue: allowComments)
-    configureYajlHandle(handle, option: yajl_dont_validate_strings, intValue: skipValidation)
+
+    configureHandle(handle, options: self.options)
     
     return handle
   }
@@ -174,6 +168,24 @@ public class YajlParser {
 fileprivate func getDelegate(context: UnsafeMutableRawPointer?) -> YajlParserDelegate? {
   let p = context?.assumingMemoryBound(to: YajlParserDelegate.self)
   return p?.pointee
+}
+
+/// Configure the handle with a set of options
+fileprivate func configureHandle(_ handle: yajl_handle, options: YajlParser.Options) {
+  let allowComments = options.contains(.allowComments) ? 1 : 0
+  configureYajlHandle(handle, option: yajl_allow_comments, intValue: allowComments)
+
+  let skipValidation = options.contains(.validateUTF8) ? 0 : 1 // this is reversed
+  configureYajlHandle(handle, option: yajl_dont_validate_strings, intValue: skipValidation)
+
+  let allowTrailing = options.contains(.allowTrailing) ? 1 : 0 // back to normal boolean
+  configureYajlHandle(handle, option: yajl_allow_trailing_garbage, intValue: allowTrailing)
+
+  let allowMultiple = options.contains(.allowMultiple) ? 1 : 0
+  configureYajlHandle(handle, option: yajl_allow_multiple_values, intValue: allowMultiple)
+
+  let allowPartial = options.contains(.allowPartial) ? 1 : 0
+  configureYajlHandle(handle, option: yajl_allow_partial_values, intValue: allowPartial)
 }
 
 // MARK: - Parser Callbacks 

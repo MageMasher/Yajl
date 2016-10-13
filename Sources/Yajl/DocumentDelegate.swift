@@ -29,8 +29,8 @@ public protocol YajlDocumentDelegate: class {
   /// - parameter object: The object that was added to the `array`
   /// - parameter array: The array to which the object was added
   func document(_ document: YajlDocument,
-                added object: JSONRepresentable,
-                to array: [JSONRepresentable])
+                didAdd object: JSONRepresentable,
+                toArray: [JSONRepresentable])
 
   /// The document added an object to a dictionary
   ///
@@ -39,7 +39,40 @@ public protocol YajlDocumentDelegate: class {
   /// - parameter key: The key for which the object was set 
   /// - parameter dict: The array to which the object was added
   func document(_ document: YajlDocument,
-                set object: JSONRepresentable,
-                `for` key: String,
+                didSet object: JSONRepresentable,
+                forKey key: String,
                 inDictionary dict: [String: JSONRepresentable])
+}
+
+/// All of these methods are technically optional, but we don't want
+/// to restrict conformers to only `@objc` classes, so we provide empty
+/// default implementations.
+extension YajlDocumentDelegate {
+  func document(_ document: YajlDocument, didAdd dict: [String: JSONRepresentable]) {
+    #if DEBUG
+      debugPrint(document, dict)
+    #endif
+  }
+  func document(_ document: YajlDocument, didAdd array: [JSONRepresentable]) {
+    #if DEBUG
+      debugPrint(document, array)
+    #endif
+  }
+  
+  func document(_ document: YajlDocument,
+                didAdd object: JSONRepresentable,
+                toArray: [JSONRepresentable]) {
+    #if DEBUG
+      debugPrint(document, object, toArray)
+    #endif
+  }
+  
+  func document(_ document: YajlDocument,
+                didSet object: JSONRepresentable,
+                forKey key: String,
+                inDictionary dict: [String: JSONRepresentable]) {
+    #if DEBUG
+      debugPrint(document, object, key, dict)
+    #endif
+  }
 }

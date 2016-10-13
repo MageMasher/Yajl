@@ -15,9 +15,14 @@ public class YajlDocument {
   /// The default capacity for new collections
   public static let defaultStackCapacity = 20
 
-  /// The root object of our document.
-  /// - note: This must be `.array` or `.dict`
-  public fileprivate(set) var root: JSONRepresentable! = nil
+  /// The root object of the document
+  public var root: JSONRepresentable? {
+    switch self._root {
+    case let ar as ArrayRef: return .array(ar.val)
+    case let dr as DictRef: return .dict(dr.val)
+    default: return nil
+    }
+  }
 
   /// The delegate for this document
   public weak var delegate: YajlDocumentDelegate?
@@ -27,28 +32,36 @@ public class YajlDocument {
 
   // MARK: - Private
 
+  /// The root object of our document.
+  /// - note: This must be `.array` or `.dict`
+  fileprivate var _root: JSONRootType? = nil
+
   /// The current type of the root object
   var currentType: CurrentType = .none
+
+  /// If we should keep a reference to the `root` once we are done parsing
+  var saveRoot: Bool
 
   /// The parser for our document 
   fileprivate var parser: YajlParser
 
   /// Reference to a dictionary. If a `map` is in progress, this points
   /// to the current `map`.
-  fileprivate var dict: [String: JSONRepresentable]? = nil
+  fileprivate weak var dict: DictRef?
 
   /// Reference to an array. If an `array` is in progress, this points
   /// to the current `array`.
-  fileprivate var array: [JSONRepresentable]? = nil
+  fileprivate weak var array: ArrayRef?
 
   /// Reference to the current key, if a `map` is in progress.
-  fileprivate var key: String? = nil
+  fileprivate var key: NSString?
 
   /// The 'Stack' of parsed objects
-  fileprivate var stack: [JSONRepresentable] = []
+  /// FIXME: This is smelly
+  fileprivate var stack: Stack<JSONSerializable> = Stack()
 
   /// The 'Stack' of parsed keys
-  fileprivate var keyStack: [String] = []
+  fileprivate var keyStack: Stack<NSString> = Stack()
 
   // MARK: - Initializers 
 
@@ -56,9 +69,14 @@ public class YajlDocument {
   ///
   /// - parameter parserOptions: Options for the document's parser
   /// - throws: An error if one occured
-  public init(parserOptions: YajlParser.Options = [], capacity: Int = YajlDocument.defaultStackCapacity) {
+  public init(parserOptions: YajlParser.Options = [],
+              capacity: Int = YajlDocument.defaultStackCapacity,
+              saveRoot: Bool = false) {
     self.parser = YajlParser(options: parserOptions)
+    self.saveRoot = saveRoot
     self.parser.delegate = self
+    self.stack.reserveCapacity(capacity)
+    self.keyStack.reserveCapacity(capacity)
   }
 
   /// Create a Document with a `Data` struct, `YajlParser.Options` and a given `capacity`.
@@ -97,26 +115,21 @@ public class YajlDocument {
   // MARK: - Private Methods
 
   fileprivate func pop() {
-    self.stack.removeLast()
+    self.stack.pop()
+
     self.array = nil
     self.dict = nil
     self.currentType = .none
 
-    var value: JSONRepresentable? = nil
+    guard let value = self.stack.last else { return }
 
-    if stack.count > 0 {
-      value = stack.last!
-    }
-
-    guard let val = value else { return }
-
-    switch val {
-    case .array(let contents):
-      self.array = contents
+    switch value {
+    case let asArray as ArrayRef:
+      self.array = asArray
       self.currentType = .array
 
-    case .dict(let contents):
-      self.dict = contents
+    case let asDict as DictRef:
+      self.dict = asDict
       self.currentType = .dict
 
     default: break
@@ -124,11 +137,10 @@ public class YajlDocument {
   }
 
   fileprivate func popKey() {
-    key = nil
-    keyStack.removeLast()
-
-    if keyStack.count > 0 {
-      key = keyStack[keyStack.count - 1]
+    self.key = nil
+    self.keyStack.pop()
+    if let last = self.keyStack.last {
+      self.key = last
     }
   }
 }
@@ -139,12 +151,12 @@ extension YajlDocument: YajlParserDelegate {
   public func parser(addedValue value: JSONRepresentable) {
     switch currentType {
     case .array:
-      self.array!.append(value)
-      self.delegate?.document(self, added: value, to: array!)
+      self.array!.val.append(value)
+      self.delegate?.document(self, didAdd: value, toArray: array!.val)
 
     case .dict:
-      self.dict![key!] = value
-      self.delegate?.document(self, set: value, for: key!, inDictionary: dict!)
+      self.dict!.val[key as! String] = value
+      self.delegate?.document(self, didSet: value, forKey: key as! String, inDictionary: dict!.val)
       self.popKey()
 
     default: break
@@ -152,49 +164,57 @@ extension YajlDocument: YajlParserDelegate {
   }
 
   public func parser(mappedKey key: String) {
-    self.key = key
-    self.keyStack.append(self.key!) // push
+    self.key = NSString(string: key)
+    self.keyStack.push(self.key!) // push
   }
 
   public func dictionaryStart() {
-    let dict = [String: JSONRepresentable](minimumCapacity: YajlDocument.defaultStackCapacity)
+    let newDict = DictRef()
 
-    if self.root == nil {
-      self.root = .dict(dict)
+    if self._root == nil {
+      self._root = newDict
     }
 
-    self.stack.append(.dict(dict))
-    self.dict = dict
+    self.stack.push(newDict)
+    self.dict = newDict
     self.currentType = .dict
   }
 
   public func dictionaryEnd() {
-    let value = self.stack.last!
+    guard let value = self.stack.last?.toJSON() else {
+      print("\(#function) -- value was nil")
+      return
+    }
+
     let dict = self.dict!
+
     self.pop()
     self.parser(addedValue: value)
-    self.delegate?.document(self, didAdd: dict)
+
+    self.delegate?.document(self, didAdd: dict.val)
   }
 
   public func arrayStart() {
-    let array = [JSONRepresentable]()
+    let newArray = ArrayRef()
 
-    if self.root == nil {
-      self.root = .array(array)
+    if self._root == nil {
+      self._root = newArray
     }
 
-    self.stack.append(.array(array))
-    self.array = array
+    self.stack.push(newArray)
+
+    self.array = newArray
     self.currentType = .array
   }
 
   public func arrayEnd() {
-    let value = self.stack.last!
+    let value = self.stack.last!.toJSON()
+
     let array = self.array!
 
     self.pop()
     self.parser(addedValue: value)
-    self.delegate?.document(self, didAdd: array)
+    self.delegate?.document(self, didAdd: array.val)
   }
 }
 
@@ -210,4 +230,55 @@ extension YajlDocument {
     /// The root object is a dictionary
     case dict
   }
+}
+
+// MARK: - Reference wrapper
+
+class Ref<T> {
+  var val: T
+  init(_ v: T) { self.val = v }
+  init(other: Ref<T>) { self.val = other.val }
+}
+
+protocol RefType {
+  associatedtype ValueType
+  var val: ValueType { get set }
+}
+
+protocol JSONRootType {}
+
+final class DictRef: Ref<[String: JSONRepresentable]>, RefType {
+  override init(_ v: [String: JSONRepresentable]) { super.init(v) }
+  init() { super.init([:]) }
+}
+
+extension DictRef: JSONSerializable {
+  func toJSON() -> JSONRepresentable {
+    return .dict(self.val)
+  }
+}
+
+extension DictRef: JSONRootType {}
+
+final class ArrayRef: Ref<[JSONRepresentable]>, RefType {
+  override init(_ v: [JSONRepresentable]) { super.init(v) }
+  init() { super.init([]) }
+  convenience init(capacity: Int) {
+    self.init()
+    self.val.reserveCapacity(capacity)
+  }
+}
+
+extension ArrayRef: JSONRootType {}
+
+extension ArrayRef: JSONSerializable {
+  func toJSON() -> JSONRepresentable {
+    return .array(self.val)
+  }
+}
+
+// MARK: - Root Object Type 
+
+final class RootObjectType {
+
 }

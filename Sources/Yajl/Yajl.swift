@@ -10,6 +10,11 @@ import struct Foundation.Data
 import class Foundation.NSNumber
 import Foundation.NSNull
 
+/// Alias JSON => JSONRepresentable, unless this 'macro' is defined.
+#if !AVOID_JSON_COLLISION
+  public typealias JSON = JSONRepresentable
+#endif
+
 /// Represents an invalid json object
 public enum JSONError: Swift.Error {
   /// The JSON object is invalid

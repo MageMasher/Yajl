@@ -9,5 +9,5 @@ let package = Package(
     dependencies: [
         .Package(url: "https://github.com/baberthal/CYajl.git", "0.1.2")
     ],
-    exclude: ["Tools", "Makefile"]
+    exclude: ["Tools", "Makefile", "README.md"]
 )

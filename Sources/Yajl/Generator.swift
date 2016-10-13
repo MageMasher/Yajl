@@ -58,6 +58,7 @@ public class YajlGenerator {
     self.options = options
     self.indentString = indentString
     self.handle = yajl_gen_alloc(nil)
+    configureHandle(self.handle, generator: self)
   }
 
   /// Clean up the handle on deinitialization
@@ -74,20 +75,20 @@ public class YajlGenerator {
   /// - precondition: `object` is of type JSONRepresentable
   public func write(object: JSONRepresentable) {
     func genArray(_ contents: [JSONRepresentable]) {
-      startArray()
+      yajl_gen_array_open(handle)
       for element in contents {
         write(object: element)
       }
-      endArray()
+      yajl_gen_array_close(handle)
     }
 
     func genDict(_ contents: [String: JSONRepresentable]) {
-      startDict()
+      yajl_gen_map_open(handle)
       for key in contents.keys.sorted() {
         write(object: .string(key))
         write(object: contents[key]!)
       }
-      endDict()
+      yajl_gen_map_close(handle)
     }
 
     switch object {
@@ -109,20 +110,26 @@ public class YajlGenerator {
     write(object: object.toJSON())
   }
 
-  /// Write a dictionary start (`{`) to the buffer
-  public func startDict() { yajl_gen_map_open(handle) }
-
-  /// Write a dictionary end (`}`) to the buffer
-  public func endDict() { yajl_gen_map_close(handle) }
-
-  /// Write an array start (`[`) to the buffer
-  public func startArray() { yajl_gen_array_open(handle) }
-
-  /// Write an array end (`]`) to the buffer
-  public func endArray() { yajl_gen_array_close(handle) }
-
   /// Reset the buffer to its initial state
   public func resetBuffer() {
     yajl_gen_clear(self.handle)
   }
+}
+
+import YajlConfig
+
+/// Configure the generator handle
+fileprivate func configureHandle(_ handle: yajl_gen, generator: YajlGenerator) {
+  let options = generator.options
+
+  let pp = options.contains(.beautify) ? 1 : 0
+  configureYajlGenerator(handle, option: yajl_gen_beautify, intValue: pp)
+
+  let validate = options.contains(.validateUTF8) ? 1 : 0
+  configureYajlGenerator(handle, option: yajl_gen_validate_utf8, intValue: validate)
+
+  let escape = options.contains(.escapeForwardSlash) ? 1 : 0
+  configureYajlGenerator(handle, option: yajl_gen_escape_solidus, intValue: escape)
+
+  configureYajlGenerator(handle, option: yajl_gen_indent_string, stringValue: generator.indentString)
 }

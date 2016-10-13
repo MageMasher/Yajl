@@ -57,7 +57,7 @@ public class YajlDocument {
   /// - parameter parserOptions: Options for the document's parser
   /// - throws: An error if one occured
   public init(parserOptions: YajlParser.Options = [], capacity: Int = YajlDocument.defaultStackCapacity) {
-    self.parser = try! YajlParser(options: parserOptions)
+    self.parser = YajlParser(options: parserOptions)
     self.parser.delegate = self
   }
 

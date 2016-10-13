@@ -66,7 +66,7 @@ public class YajlParser {
   /// Create a parser with given options.
   ///
   /// - parameter options: `YajlParser.Options` to use.
-  public init(options: Options = .none) throws {
+  public init(options: Options = .none) {
     self.options = options
   }
 

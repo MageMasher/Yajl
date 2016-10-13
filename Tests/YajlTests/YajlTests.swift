@@ -6,12 +6,8 @@ class YajlTests: YajlTestCase {
 
   override func setUp() {
     super.setUp()
-    if let prsr = try? YajlParser(options: []) {
-      self.parser = prsr
-      self.parser.delegate = self.parserDelegate
-    } else {
-      XCTFail("Unable to allocate parser")
-    }
+    self.parser = YajlParser()
+    self.parser.delegate = self.parserDelegate
   }
   
   func testExample() {

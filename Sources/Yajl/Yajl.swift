@@ -107,7 +107,7 @@ public final class Yajl {
       return false
     }
 
-    guard !(obj is JSONRepresentable) else { return true }
+    guard !(obj is JSONRepresentable || obj is JSONSerializable) else { return true }
     
     guard obj is [Any] || obj is [String: Any] else { return false }
     
